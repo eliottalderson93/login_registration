@@ -1,0 +1,32 @@
+<html>
+
+<head>
+    <title>Chess Images</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='javascript/my_script.js') }}">
+        $(document).ready(function () {
+            $("").___();
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Enter a Valid(Any) Name!</h1>
+    {% with messages = get_flashed_messages() %} 
+        {% if messages %} 
+            {% for message in messages %}
+    <p>{{message}}</p>
+            {% endfor %} 
+        {% endif %} 
+    {% endwith %}
+    <form action='/process' method='POST'>
+        Name:
+        <input type="text" name="name">
+        <input type="submit" value="Submit">
+    </form>
+    <h1>Insert page header</h1>
+    <p>Insert a paragraph</p>
+</body>
+
+</html>

@@ -1,0 +1,18 @@
+/*This is a default CSS document*/
+*{
+    padding:0px;
+    margin:0px;
+    border:red dashed 1px;
+}
+/*This is the start of the webpage*/
+.wrapper{
+    min-height:1000px;
+    min-width:1000px;
+    background-color:silver;
+}
+    /*Define the classes below*/
+    .class{
+        height:500px;
+        width:500px;
+        margin:auto;
+    }
