@@ -2,17 +2,24 @@
 *{
     padding:0px;
     margin:0px;
-    border:red dashed 1px;
+    /* border:red dashed 1px; */
+    text-align:center;
 }
 /*This is the start of the webpage*/
+h6{
+    color:darkred;
+}
 .wrapper{
-    min-height:1000px;
+    min-height:1700px;
     min-width:1000px;
     background-color:silver;
 }
     /*Define the classes below*/
-    .class{
-        height:500px;
-        width:500px;
+    .entry_field{
+        height:100px;
+        width:100%;
         margin:auto;
     }
+        .entry_field input{
+            text-align:left;
+        }

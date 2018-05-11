@@ -8,26 +8,147 @@ EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
 app = Flask(__name__)
 app.secret_key = 'KeepItSecretKeepItSafe'
 bcrypt = Bcrypt(app)
-mysql = connectToMySQL('mydb')
+mysql = connectToMySQL('login_user')
+
 @app.route('/')
 def index():
+    if 'initial' in session:
+        session['initial'] = False
+        session['user_id'] = -1
+        if session['user_id'] != -1: #user is here
+            flash('You are logged in')
+            return redirect('/success')
+        #print(session)
+    else:
+        session['initial'] = True #initialize
+        session['user_id'] = -1
+        session['valid'] =True
+        session['first_name'] = 'you little orc' #someone has hacked in if they read this
+    if session['initial'] == False:
+        pass
     return render_template('code.html')
 
-@app.route("/reserve", methods=['POST'])
-def reserve():
-    debugHelp("RESERVE METHOD")
-    return "reserve"
+@app.route("/register", methods=['POST'])
+def reserve():     
+    if len(request.form['first_name']) < 2:
+        flash("First name too short", 'first_name')
+        session['valid'] =False
+    elif request.form['first_name'].isalpha() == False:
+        flash("First name invalid", 'first_name')
+        session['valid'] =False
+    if len(request.form['last_name']) < 2:
+        flash("Last name too short", 'last_name')
+        session['valid'] =False
+    elif request.form['last_name'].isalpha() == False:
+        flash("Last name invalid", 'last_name')
+        session['valid'] =False
+    if not EMAIL_REGEX.match(request.form['email']):
+        flash("Invalid Email Address!",'email')
+        session['valid'] = False
+    else: #check if in DB 
+        if not (checkDB('email','users',request.form['email'])):
+            flash("Invalid Email Address!",'email')
+            session['valid'] = False
+    if request.form['password'] != request.form['confirm']:
+        flash("Passwords must match",'confirm')
+        session['valid'] =False
+    if len(request.form['password']) < 8:
+        flash("Password too short",'password')
+        session['valid'] =False
+    #end verification
+    print(session['valid'])    
+    if session['valid'] == True:
+        first = request.form['first_name']
+        last = request.form['last_name']
+        email = request.form['email']
+        pw_hash = hashPassword(request.form['password'])
+        session['user_id'] = createUser(first,last,email,pw_hash)
+        session['first_name'] = first 
+        return redirect('/success')
+    else:
+        return redirect('/')
+
+@app.route("/login_page")
+def display():
+    return render_template('login.html')
+
+@app.route("/login", methods=['POST'])
+def mainframe():
+    if not EMAIL_REGEX.match(request.form['email']):
+        flash("We don't recognize your email")
+        return redirect('/login_page')
+    attempt = request.form['email']
+    attempt1 = request.form['password']
+    correct_email = checkDB('email','users',attempt)
+    correct_password = hashPassword(attempt1)
+    correct_password = checkDB('password','users',correct_password)
+    if correct_password and correct_email:
+        user = getDataFromBase(info1 = attempt)
+        session['first_name'] = user['first_name']
+        return redirect('/success')
+    else:
+        flash("Invalid Login")
+        return redirect('/login_page')
+
     
 @app.route("/success")
 def success():
-    return "Thank you ___. Your seat is now reserved!"
+    return render_template('user.html')
+
+@app.route('/clear')
+def clear():
+    session.clear()
+    return redirect('/')
+
+def getDataFromBase(id = -1,info1='default',info2='default',info3='default'):
+    query = "SELECT * FROM users WHERE email = %(info1)s;"
+    data = {"email" : request.form["email"]}
+    result = mysql.query_db(query, data)
+    return result
+def createUser(fname,lname,email,pw_hash):
+    query = "INSERT INTO users (first_name,last_name,email) VALUES (%(fname)s,%(lname)s,%(email)s,%(pw_hash)s);" 
+    data = { "first_name" : fname,"last_name" : lname, "email" : email, "password" : pw_hash}
+    user_id = mysql.query_db(query, data)
+    return user_id
+def hashPassword(pw):
+    pw_hash = bcrypt.generate_password_hash(pw)
+    return pw_hash
+def checkDB(col,table,check_var):
+    q_string = "SELECT "+str(col)+" FROM "+str(table)+';'
+    print(q_string)
+    col_check = mysql.query_db(q_string)
+    print(col_check)
+    for col_var in col_check:
+        if col_var == check_var:
+            return False
+    return True
 
 def debugHelp(message = ""):
     print("\n\n-----------------------", message, "--------------------")
     print('REQUEST.FORM:', request.form)
     print('SESSION:', session)
-    if __name__ == "__main__":
+
+if __name__ == "__main__":
     app.run(debug=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @app.route('/process', methods=['Post'])
 def process():
