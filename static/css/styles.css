@@ -23,3 +23,11 @@ h6{
         .entry_field input{
             text-align:left;
         }
+    .login input{
+        text-align:left;
+    }
+    .login button{
+        display:block;
+        margin:auto;
+        margin-top:5px;
+    }

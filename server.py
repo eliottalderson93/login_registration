@@ -25,7 +25,7 @@ def index():
         session['valid'] =True
         session['first_name'] = 'you little orc' #someone has hacked in if they read this
     if session['initial'] == False:
-        pass
+        session['valid'] =True
     return render_template('code.html')
 
 @app.route("/register", methods=['POST'])
@@ -43,12 +43,17 @@ def reserve():
         flash("Last name invalid", 'last_name')
         session['valid'] =False
     if not EMAIL_REGEX.match(request.form['email']):
+        print('REGEX')
         flash("Invalid Email Address!",'email')
         session['valid'] = False
     else: #check if in DB 
-        if not (checkDB('email','users',request.form['email'])):
+        print('is the email in DB?')
+        if (checkDB('email','users',request.form['email'])==True):
+            print('email in DB, user cannot use same email')
             flash("Invalid Email Address!",'email')
             session['valid'] = False
+        else:
+            print('email is not in DB')
     if request.form['password'] != request.form['confirm']:
         flash("Passwords must match",'confirm')
         session['valid'] =False
@@ -56,7 +61,7 @@ def reserve():
         flash("Password too short",'password')
         session['valid'] =False
     #end verification
-    print(session['valid'])    
+    print('is this session valid? :',session['valid'])
     if session['valid'] == True:
         first = request.form['first_name']
         last = request.form['last_name']
@@ -74,22 +79,35 @@ def display():
 
 @app.route("/login", methods=['POST'])
 def mainframe():
-    if not EMAIL_REGEX.match(request.form['email']):
+    debugHelp(message='LOGINPOST')
+    attempt = request.form['email']
+    if not EMAIL_REGEX.match(attempt):
         flash("We don't recognize your email")
         return redirect('/login_page')
-    attempt = request.form['email']
-    attempt1 = request.form['password']
     correct_email = checkDB('email','users',attempt)
-    correct_password = hashPassword(attempt1)
-    correct_password = checkDB('password','users',correct_password)
+    print('Check email::',correct_email)
+    debugHelp(message='LOGINPOST')
+    correct_passwordDB = getDataFromBase('password','email',attempt)
+    print('DB_OBJ::',correct_passwordDB)
+    print('SUBMIT_PASSWORD::',request.form['password'])
+    if (correct_passwordDB == False):   #check if we misqueried the DB
+        correct_password = False        #will fail below and redirect
+    else:
+        print('DB_PASS::', correct_passwordDB[0]['password'])
+        correct_password = bcrypt.check_password_hash(correct_passwordDB[0]['password'],request.form['password'])
+    debugHelp(message='LOGINPOST')
+    print('let me in?',correct_password,correct_email)
     if correct_password and correct_email:
-        user = getDataFromBase(info1 = attempt)
-        session['first_name'] = user['first_name']
+        print('this password matches an email')
+        user = getDataFromBase('first_name','email',attempt) #returns a size 1 tuple of dict, access user[0]['key']
+        debugHelp(message='BACK_LOGINPOST')
+        print('USER_DICT::',user)
+        session['first_name'] = user[0]['first_name']
+        print('SESSION_FIRST::',session['first_name'])
         return redirect('/success')
     else:
         flash("Invalid Login")
         return redirect('/login_page')
-
     
 @app.route("/success")
 def success():
@@ -97,31 +115,59 @@ def success():
 
 @app.route('/clear')
 def clear():
+    debugHelp(message='LOGOUT')
     session.clear()
+    debugHelp(message ='SESSION_EMPTY')
     return redirect('/')
 
-def getDataFromBase(id = -1,info1='default',info2='default',info3='default'):
-    query = "SELECT * FROM users WHERE email = %(info1)s;"
-    data = {"email" : request.form["email"]}
-    result = mysql.query_db(query, data)
-    return result
+def getDataFromBase(category,identifier,request):
+    debugHelp(message ='GETDATAFROMBASE')
+    this_request = {'category':category,'identifier':identifier,'request':request}
+    print("you are requesting::",this_request)
+    query = "SELECT {} FROM users WHERE {}='{}';".format(category.strip("'"),identifier.strip("'"),request.strip("'"))
+    print("you are querying::",query)
+    result = mysql.query_db(query)
+    if not(result):
+        print('no such data')
+        return False
+    else:
+        print("you get::", result)
+        return result
+
 def createUser(fname,lname,email,pw_hash):
-    query = "INSERT INTO users (first_name,last_name,email) VALUES (%(fname)s,%(lname)s,%(email)s,%(pw_hash)s);" 
+    debugHelp(message ='CREATEUSER')
+    print('HASH::',pw_hash)
     data = { "first_name" : fname,"last_name" : lname, "email" : email, "password" : pw_hash}
+    query = "INSERT INTO users (first_name,last_name,email,password) VALUES ('{first_name}','{last_name}','{email}','{password}');".format(**data) 
+    print('DATA OBJECT::',data)
+    print('QUERY STRING::',query)
     user_id = mysql.query_db(query, data)
     return user_id
+
 def hashPassword(pw):
     pw_hash = bcrypt.generate_password_hash(pw)
+    pw_hash = str(pw_hash).strip('b').replace("'","")
     return pw_hash
 def checkDB(col,table,check_var):
-    q_string = "SELECT "+str(col)+" FROM "+str(table)+';'
-    print(q_string)
-    col_check = mysql.query_db(q_string)
-    print(col_check)
-    for col_var in col_check:
-        if col_var == check_var:
-            return False
-    return True
+    col = str(col)
+    table = str(table)
+    check_var = str(check_var)
+    data = {'col':col,'table':table,'check_var':check_var}
+    q_string = "SELECT "+col+" FROM "+table+';'
+    debugHelp(message = 'CHECKDB')
+    print('QUERY::',q_string)
+    print('DATA::',data)
+    col_check = mysql.query_db(q_string) #should return dictionary
+    print('DICT_ARRAY::',col_check)
+    for i in range(len(col_check)): #elements in dictionary
+        print('CHECKING DICT_ARRAY')
+        print('ELEMENT::',col_check[i]['{}'.format(col)])
+        print('checked against::',check_var)
+        if col_check[i]['{}'.format(col)] == data['check_var']:
+            print('ELEMENT FOUND')
+            return True
+    print('ELEMENT NOT FOUND')
+    return False
 
 def debugHelp(message = ""):
     print("\n\n-----------------------", message, "--------------------")
@@ -130,72 +176,3 @@ def debugHelp(message = ""):
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.route('/process', methods=['Post'])
-def process():
-    if len(request.form['name']) < 1:
-       flash("Name cannot be empty!") # just pass a string to the flash function
-    elif not EMAIL_REGEX.match(request.form['email']):
-        flash("Invalid Email Address!")
-    else:
-        flash(f"Success! Your name is {request.form['name']}.") # just pass a string to the flash function
-    return redirect('/')
-
-@app.route('/createUser', methods=['POST'])
-def create():
-    # include some logic to validate user input before adding them to the database!
-    # create the hash
-    pw_hash = bcrypt.generate_password_hash(request.form['password'])  
-    print(pw_hash)  
-    # prints something like b'$2b$12$sqjyok5RQccl9S6eFLhEPuaRaJCcH3Esl2RWLm/cimMIEnhnLb7iC'
-    # be sure you set up your database so it can store password hashes this long (60 characters)
-    query = "INSERT INTO users (username, password) VALUES (%(username)s, %(password_hash)s);"
-    # put the pw_hash in our data dictionary, NOT the password the user provided
-    data = { "username" : request.form['username'],
-             "password_hash" : pw_hash }
-    mysql.query_db(query, data)
-    # never render on a post, always redirect!
-    return redirect("/")
-
-@app.route('/login', methods=['POST'])
-def login():
-    # see if the username provided exists in the database
-    query = "SELECT * FROM users WHERE username = %(username)s;"
-    data = {"username" : request.form["username"]}
-    result = mysql.query_db(query, data)
-    if result:
-        # assuming we only have one user with this username, the user would be first in the list we get back
-        # of course, for this approach, we should have some logic to prevent duplicates of usernames when we create users
-        # use bcrypt's check_password_hash method, passing the hash from our database and the password from the form
-        if bcrypt.check_password_hash(result[0]['password'], request.form['password']):
-            # if we get True after checking the password, we may put the user id in session
-            session['userid'] = result[0]['id']
-            # never render on a post, always redirect!
-            return redirect('/success')
-    # if we didn't find anything in the database by searching by username or if the passwords don't match,
-    # flash an error message and redirect back to a safe route
-    flash("You could not be logged in")
-    return redirect("/")
-
-if __name__=="__main__":
-    app.run(debug=True)
-
